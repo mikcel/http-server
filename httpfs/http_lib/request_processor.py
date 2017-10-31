@@ -1,16 +1,18 @@
+import mimetypes
 import os
 import re
-import mimetypes
-from http_lib.exceptions import *
-from http_lib.http_response import HTTPResponse, ContentType
 
-DEFAULT_WORKING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "working_dir")
+from httpfs.http_lib.http_response import HTTPResponse, ContentType
+
+from httpfs.http_lib.exceptions import *
+
+DEFAULT_WORKING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "working_dir")
 
 
 class RequestProcessor:
-    def __init__(self, request):
+    def __init__(self, request, working_dir):
         self.request = request
-        self.working_dir = DEFAULT_WORKING_DIR
+        self.working_dir = working_dir if not working_dir else DEFAULT_WORKING_DIR
 
     def process_request(self):
 
@@ -21,9 +23,9 @@ class RequestProcessor:
         except Exception as e:
             return HTTPResponse(status_code=400, body=str(e), content_type=ContentType.PLAIN)
 
+        response = None
         if self.request.method is not None:
 
-            response = None
             if self.request.method.upper() == "GET":
 
                 response_data = {"status_code": 200, "body": "", "content_type": ContentType.PLAIN}
@@ -46,7 +48,29 @@ class RequestProcessor:
                                         body=response_data["body"],
                                         content_type=response_data["content_type"])
 
-            return response
+            elif self.request.method.upper() == "POST":
+
+                response_data = {"status_code": 200, "body": "", "content_type": ContentType.PLAIN}
+                try:
+                    self.__process_post_request()
+                except BadRequestError as e:
+                    response_data["status_code"] = 400
+                    response_data["body"] = str(e)
+                except FileNotFoundError as e:
+                    response_data["status_code"] = 404
+                    response_data["body"] = str(e)
+                except (Exception, IOError) as e:
+                    response_data["status_code"] = 500
+                    response_data["body"] = str(e)
+
+                response = HTTPResponse(status_code=response_data["status_code"],
+                                        body=response_data["body"],
+                                        content_type=response_data["content_type"])
+
+        else:
+            response = HTTPResponse(status_code=400)
+
+        return response
 
     def validate_request(self):
 
@@ -96,6 +120,23 @@ class RequestProcessor:
 
         else:
             raise BadRequestError()
+
+    def __process_post_request(self):
+
+        if re.search(r'^\/.+[^/]$', self.request.uri) is not None:
+            requested_file_path = self.working_dir + self.request.uri
+
+            try:
+                with open(requested_file_path, "w") as file_obj:
+                    file_obj.write(self.request.params)
+            except FileNotFoundError:
+                raise FileNotFoundError("Requested file not found")
+            except IOError:
+                raise IOError("Error writing to file")
+
+        else:
+            raise BadRequestError()
+
 
     def get_uri_mime_type(self):
 

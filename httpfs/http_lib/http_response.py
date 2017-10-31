@@ -19,14 +19,13 @@ class HTTPResponse:
         self.body = body
         self.additional_headers = additional_headers
 
-    def construct_response(self):
+    def construct_response(self, debug=False):
 
         try:
             status_desc = self.map_status_code()
 
             status_line = "HTTP/1.1 %d %s" % (self.status_code, status_desc)
 
-            content_type = None
             if not isinstance(self.content_type, ContentType):
                 content_type = self.content_type
             else:
@@ -55,7 +54,8 @@ class HTTPResponse:
             # TODO: Handle errors
             final_response = """HTTP/1.1 500 INTERNAL ERROR"""
 
-        print(final_response)
+        if debug:
+            print(final_response)
 
         return final_response.encode("utf-8")
 
