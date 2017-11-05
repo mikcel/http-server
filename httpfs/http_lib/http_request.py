@@ -2,7 +2,6 @@ import re
 
 
 class HTTPRequest:
-
     def __init__(self, raw_request_data, debug=False):
 
         self.raw_request_data = raw_request_data
@@ -37,7 +36,7 @@ class HTTPRequest:
         request_headers = dict()
 
         req_split_idx = 1
-        while req_split_idx < len(split_request) and len(split_request[req_split_idx]) > 0  \
+        while req_split_idx < len(split_request) and len(split_request[req_split_idx]) > 0 \
                 and split_request[req_split_idx]:
 
             # Split Header key:value
@@ -56,7 +55,7 @@ class HTTPRequest:
         if req_split_idx < len(split_request) and self.method.upper() == "POST":
 
             param_list = list()
-            for param in split_request[req_split_idx+1:]:
+            for param in split_request[req_split_idx + 1:]:
                 param_list.append(param)
 
             self.params = '\n'.join(param_list)

@@ -1,6 +1,6 @@
 import traceback
-from datetime import datetime
 from collections import OrderedDict
+from datetime import datetime
 from enum import Enum
 
 
@@ -11,7 +11,6 @@ class ContentType(Enum):
 
 
 class HTTPResponse:
-
     def __init__(self, status_code=200, body="", content_type=ContentType.PLAIN, additional_headers=None):
 
         self.status_code = status_code
@@ -51,7 +50,6 @@ class HTTPResponse:
         except Exception:
 
             traceback.print_exc()
-            # TODO: Handle errors
             final_response = """HTTP/1.1 500 INTERNAL ERROR"""
 
         if debug:

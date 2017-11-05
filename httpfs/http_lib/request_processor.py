@@ -2,14 +2,19 @@ import mimetypes
 import os
 import re
 
-from httpfs.http_lib.http_response import HTTPResponse, ContentType
+import time
 
 from httpfs.http_lib.exceptions import *
+from httpfs.http_lib.http_response import HTTPResponse, ContentType
 
-DEFAULT_WORKING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "working_dir")
+DEFAULT_WORKING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+                                   "working_dir")
 
 
 class RequestProcessor:
+
+    opened_files = list()
+
     def __init__(self, request, working_dir):
         self.request = request
         self.working_dir = working_dir if not working_dir else DEFAULT_WORKING_DIR
@@ -34,6 +39,9 @@ class RequestProcessor:
                 except BadRequestError as e:
                     response_data["status_code"] = 400
                     response_data["body"] = str(e)
+                except ConflictError as e:
+                    response_data["status_code"] = 409
+                    response_data["body"] = str(e)
                 except FileNotFoundError as e:
                     response_data["status_code"] = 404
                     response_data["body"] = str(e)
@@ -55,6 +63,9 @@ class RequestProcessor:
                     self.__process_post_request()
                 except BadRequestError as e:
                     response_data["status_code"] = 400
+                    response_data["body"] = str(e)
+                except ConflictError as e:
+                    response_data["status_code"] = 409
                     response_data["body"] = str(e)
                 except FileNotFoundError as e:
                     response_data["status_code"] = 404
@@ -111,8 +122,19 @@ class RequestProcessor:
         elif re.search(r'^\/.+[^/]$', self.request.uri) is not None:
 
             try:
-                with open(requested_file_path, "r") as requested_file_obj:
-                    return requested_file_obj.read()
+                self.check_file_lock(requested_file_path)
+
+                file_data = []
+                with open(requested_file_path, "r") as requested_file:
+                    self.add_to_opened_file(requested_file_path)
+                    for line in requested_file:
+                        file_data.append(line)
+
+                file_data = '\n'.join(file_data)
+                self.rm_to_opened_file(requested_file_path)
+
+                return file_data
+
             except FileNotFoundError:
                 raise FileNotFoundError("Requested File not found")
             except IOError:
@@ -127,8 +149,17 @@ class RequestProcessor:
             requested_file_path = self.working_dir + self.request.uri
 
             try:
+
+                self.check_file_lock(requested_file_path)
+                print(RequestProcessor.opened_files)
+
                 with open(requested_file_path, "w") as file_obj:
+                    self.add_to_opened_file(requested_file_path)
+
                     file_obj.write(self.request.params)
+
+                self.rm_to_opened_file(requested_file_path)
+
             except FileNotFoundError:
                 raise FileNotFoundError("Requested file not found")
             except IOError:
@@ -137,13 +168,29 @@ class RequestProcessor:
         else:
             raise BadRequestError()
 
-
     def get_uri_mime_type(self):
 
         if re.search(r'^\/.+[^/]$', self.request.uri) is not None:
             return mimetypes.guess_type(self.working_dir + self.request.uri)[0]
 
         return ContentType.PLAIN
+
+    @staticmethod
+    def check_file_lock(file_path):
+
+        if file_path in RequestProcessor.opened_files:
+            raise ConflictError()
+
+        return True
+
+    @staticmethod
+    def add_to_opened_file(file_path):
+        RequestProcessor.opened_files.append(file_path)
+
+    @staticmethod
+    def rm_to_opened_file(file_path):
+        if file_path in RequestProcessor.opened_files:
+            RequestProcessor.opened_files.remove(file_path)
 
     @staticmethod
     def list_file_dir(path):
@@ -156,4 +203,3 @@ class RequestProcessor:
             raise Exception("Unable to list files in directory")
         else:
             return ", ".join(dir_list_file)
-
