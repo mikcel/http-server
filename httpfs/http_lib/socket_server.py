@@ -1,11 +1,15 @@
 import socket
 import threading
-import traceback
+import logging
 from datetime import datetime
 from time import sleep
 
+import sys
+
 from httpfs.http_lib.http_request import HTTPRequest
 from httpfs.http_lib.request_processor import RequestProcessor
+
+lock = threading.Lock()
 
 
 class ClientThread(threading.Thread):
@@ -23,7 +27,6 @@ class ClientThread(threading.Thread):
         if self.debug:
             print("\nNew request from %s" % str(self.addr))
 
-        self.conn.setblocking(False)
         while True:
             try:
                 received_data = self.conn.recv(1024)
@@ -40,28 +43,32 @@ class ClientThread(threading.Thread):
 
             request_data = ''.join(request_data)
 
-            if self.debug:
-                print("====PARSING REQUEST====")
+            logging.info("====PARSING REQUEST====")
 
-            request = HTTPRequest(raw_request_data=request_data, debug=self.debug)
+            request = HTTPRequest(raw_request_data=request_data)
 
-            if self.debug:
-                print("====PROCESSING REQUEST====")
+            logging.info("====PROCESSING REQUEST====")
 
             response = RequestProcessor(request=request, working_dir=self.working_dir).process_request()
 
-            if self.debug:
-                print("====SENDING RESPONSE====")
-            else:
+            logging.info("====SENDING RESPONSE====")
+
+            if not self.debug:
                 date_time_now = datetime.now().strftime("%d/%b/%Y %H:%M:%S")
-                print("[%s] %s %s %s from: %s" % (
-                date_time_now, request.method, request.uri, response.status_code, str(self.addr)))
+                print("[%s] %s %s %s:%s from: %s" % (date_time_now, request.method, request.uri,
+                                                     response.status_code, response.map_status_code(),
+                                                     str(self.addr)))
 
             try:
-                self.conn.sendall(response.construct_response(debug=self.debug))
+                self.conn.sendall(response.construct_response())
             except BrokenPipeError:
-                print("Client timed out")
-            else:
+                logging.error("Client timed out")
+            except BlockingIOError:
+                logging.error("Connection blocked")
+                pass
+            except Exception as e:
+                logging.error(e)
+            finally:
                 self.conn.close()
 
             break
@@ -79,8 +86,14 @@ class SocketServer(object):
 
         binded = False
 
+        if self.debug:
+            logging.basicConfig(stream=sys.stdout, format='%(message)s', level=logging.INFO)
+        else:
+            logging.getLogger().disabled = True
+
         for retry in range(4):
             try:
+                self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
                 self.listener.bind((self.host, self.port))
                 binded = True
                 break
@@ -121,5 +134,3 @@ class SocketServer(object):
                 thread.join()
 
             self.listener.close()
-
-

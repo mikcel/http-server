@@ -1,42 +1,40 @@
+import logging
 import traceback
 from collections import OrderedDict
 from datetime import datetime
-from enum import Enum
-
-
-class ContentType(Enum):
-    HTML = 'text/html'
-    PLAIN = 'text/plain'
-    JSON = 'text/json'
 
 
 class HTTPResponse:
-    def __init__(self, status_code=200, body="", content_type=ContentType.PLAIN, additional_headers=None):
+    def __init__(self, status_code=200, body="", content_type="text/plain", additional_headers=None, file_name=""):
 
         self.status_code = status_code
         self.content_type = content_type
         self.body = body
         self.additional_headers = additional_headers
+        self.file_name = file_name
 
-    def construct_response(self, debug=False):
+    def construct_response(self):
 
         try:
             status_desc = self.map_status_code()
 
             status_line = "HTTP/1.1 %d %s" % (self.status_code, status_desc)
 
-            if not isinstance(self.content_type, ContentType):
-                content_type = self.content_type
+            if self.file_name or self.content_type:
+                content_disposition = self.determine_disposition()
             else:
-                content_type = self.content_type.value
+                content_disposition = ""
 
             headers = OrderedDict(
                 [("Date", datetime.now().strftime("%a, %d %b %Y %H:%M:%S %Z")),
                  ("Server", "localhost"),
                  ("Content-Length", len(self.body)),
-                 ("Content-Type", content_type),
+                 ("Content-Type", self.content_type),
                  ("Connection", "close")]
             )
+
+            if content_disposition and content_disposition != "":
+                headers["Content-Disposition"] = content_disposition
 
             if self.additional_headers is not None and isinstance(self.additional_headers, dict):
                 headers.update(self.additional_headers)
@@ -45,15 +43,17 @@ class HTTPResponse:
             for key, value in headers.items():
                 headers_str += "%s: %s\r\n" % (key, value)
 
-            final_response = """%s\r\n%s\r\n%s""" % (status_line, headers_str, self.body)
+            response_format = """%s\r\n%s\r\n%s"""
+            logging.info(response_format % (status_line, headers_str, ""))
+
+            final_response = response_format % (status_line, headers_str, self.body)
 
         except Exception:
 
             traceback.print_exc()
             final_response = """HTTP/1.1 500 INTERNAL ERROR"""
 
-        if debug:
-            print(final_response)
+            logging.info(final_response)
 
         return final_response.encode("utf-8")
 
@@ -65,6 +65,7 @@ class HTTPResponse:
             404: 'Not Found',
             403: 'Forbidden',
             405: 'Method not allowed',
+            409: 'Conflict',
             408: 'Request Time-out',
             411: 'Length Required',
             500: 'Internal Server Error'
@@ -75,3 +76,10 @@ class HTTPResponse:
         else:
             self.status_code = 500
             return mapping_dict.get(self.status_code)
+
+    def determine_disposition(self):
+
+        if "text" in self.content_type:
+            return "inline"
+        else:
+            return 'attachment; filename="%s"' % self.file_name
