@@ -1,3 +1,7 @@
+
+__author__ = "Celine Mikiel Yohann"
+__id__ = "40009948"
+
 import argparse
 import os
 import sys
@@ -15,6 +19,11 @@ class DirPath(argparse.Action):
 
 
 def is_dir(dir_path):
+    """
+    Method to determine if path is a directory
+    :param dir_path: path to check
+    :return: True if path is a directory otherwise an Exception will be raised
+    """
     if not os.path.isdir(dir_path):
         raise argparse.ArgumentTypeError("% is not a directory" % dir_path)
     else:
@@ -28,10 +37,9 @@ def main():
     parser.add_argument("-p", type=int, default=8080,
                         help="Specifies the port number that the server will listen and serve at. Default is 8080.",
                         dest="PORT")
-    parser.add_argument("-d", type=is_dir, default=".", action=DirPath,
+    parser.add_argument("-d", type=is_dir, default=os.getcwd(), action=DirPath, dest="PATH-TO-DIR",
                         help="Specifies the directory that the server will use to read/write requested files. "
-                             "Default is the current directory when launching the application.",
-                        dest="PATH-TO-DIR")
+                             "Default is the current directory when launching the application.")
 
     try:
 

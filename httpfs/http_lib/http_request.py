@@ -1,3 +1,7 @@
+
+__author__ = "Celine Mikiel Yohann"
+__id__ = "40009948"
+
 import re
 import logging
 
@@ -16,6 +20,7 @@ class HTTPRequest:
 
     def parse_raw_request(self):
 
+        # Split the request to seperate headers and body if any
         split_request = self.raw_request_data.split('\r\n')
         if len(split_request) == 0:
             self.empty_request = True

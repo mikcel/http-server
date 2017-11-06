@@ -1,3 +1,8 @@
+
+__author__ = "Celine Mikiel Yohann"
+__id__ = "40009948"
+
+
 class RestrictedAccessError(Exception):
     def __init__(self):
         super(RestrictedAccessError, self).__init__("Access to restricted files denied!")

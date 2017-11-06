@@ -1,14 +1,14 @@
+
+__author__ = "Celine Mikiel Yohann"
+__id__ = "40009948"
+
 import mimetypes
 import os
 import re
 import logging
-import traceback
 
 from httpfs.http_lib.exceptions import *
 from httpfs.http_lib.http_response import HTTPResponse
-
-DEFAULT_WORKING_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-                                   "working_dir")
 
 
 class RequestProcessor:
@@ -17,11 +17,12 @@ class RequestProcessor:
 
     def __init__(self, request, working_dir):
         self.request = request
-        self.working_dir = working_dir if not working_dir else DEFAULT_WORKING_DIR
+        self.working_dir = working_dir if working_dir else os.getcwd()
 
     def process_request(self):
 
         try:
+            # Check the parsed request
             self.validate_request()
         except RestrictedAccessError as e:
             return HTTPResponse(status_code=403, body=str(e))
@@ -29,10 +30,13 @@ class RequestProcessor:
             return HTTPResponse(status_code=400, body=str(e), content_type="text/plain")
 
         response = None
+
+        # Check method and call respective functions
         if self.request.method is not None:
 
             if self.request.method.upper() == "GET":
 
+                # Return respective code for exception
                 try:
                     response_body = self.__process_get_request()
                 except BadRequestError as e:
@@ -42,7 +46,6 @@ class RequestProcessor:
                 except FileNotFoundError as e:
                     response_data = self.format_response_dict(status_code=404, body=e)
                 except (Exception, IOError) as e:
-                    traceback.print_exc()
                     response_data = self.format_response_dict(status_code=500, body=e)
                 else:
                     response_data = self.format_response_dict(status_code=200, body=response_body["body"],
@@ -66,7 +69,6 @@ class RequestProcessor:
                 except FileNotFoundError as e:
                     response_data = self.format_response_dict(status_code=404, body=e)
                 except (Exception, IOError) as e:
-                    traceback.print_exc()
                     response_data = self.format_response_dict(status_code=500, body=e)
                 else:
                     response_data = self.format_response_dict(status_code=200, body=self.request.params,

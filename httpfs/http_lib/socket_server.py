@@ -1,3 +1,7 @@
+
+__author__ = "Celine Mikiel Yohann"
+__id__ = "40009948"
+
 import socket
 import threading
 import logging
@@ -28,14 +32,17 @@ class ClientThread(threading.Thread):
             print("\nNew request from %s" % str(self.addr))
 
         while True:
+
+            # Get all data from the client
             try:
-                received_data = self.conn.recv(1024)
+                received_data = self.conn.recv(8092)
             except socket.timeout:
                 print("Unable to read request from client. Timed out.")
                 break
             except BlockingIOError:
                 continue
 
+            # If no data sent, leave the loop
             if not received_data:
                 break
             else:
@@ -45,14 +52,17 @@ class ClientThread(threading.Thread):
 
             logging.info("====PARSING REQUEST====")
 
+            # Create a request
             request = HTTPRequest(raw_request_data=request_data)
 
             logging.info("====PROCESSING REQUEST====")
 
+            # Process the request
             response = RequestProcessor(request=request, working_dir=self.working_dir).process_request()
 
             logging.info("====SENDING RESPONSE====")
 
+            # Special output if in debug mode
             if not self.debug:
                 date_time_now = datetime.now().strftime("%d/%b/%Y %H:%M:%S")
                 print("[%s] %s %s %s:%s from: %s" % (date_time_now, request.method, request.uri,
@@ -60,6 +70,7 @@ class ClientThread(threading.Thread):
                                                      str(self.addr)))
 
             try:
+                # Send response back to client
                 self.conn.sendall(response.construct_response())
             except BrokenPipeError:
                 logging.error("Client timed out")
@@ -86,11 +97,13 @@ class SocketServer(object):
 
         binded = False
 
+        # Use logging to stdout if verbose activated
         if self.debug:
             logging.basicConfig(stream=sys.stdout, format='%(message)s', level=logging.INFO)
         else:
             logging.getLogger().disabled = True
 
+        # Try to connect to port if not available
         for retry in range(4):
             try:
                 self.listener.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -113,9 +126,12 @@ class SocketServer(object):
             # no. of unaccepted connections that the system will allow before refusing new connections
             self.listener.listen(5)
 
+            print("Working Dir: %s" % self.working_dir)
+
             print("HTTP Server is listening at %s" % self.port)
             print("Quit the server with CTRL-BREAK")
 
+            # Listen to incoming connection
             while True:
                 conn, addr = self.listener.accept()
                 client_thread = ClientThread(conn, addr, debug=self.debug, working_dir=self.working_dir)
@@ -130,6 +146,7 @@ class SocketServer(object):
             print("Internal error: %s" % e)
         finally:
 
+            # Join all threads before leaving
             for thread in threads:
                 thread.join()
 

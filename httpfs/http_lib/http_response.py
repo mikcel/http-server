@@ -1,3 +1,7 @@
+
+__author__ = "Celine Mikiel Yohann"
+__id__ = "40009948"
+
 import logging
 import traceback
 from collections import OrderedDict
@@ -16,15 +20,19 @@ class HTTPResponse:
     def construct_response(self):
 
         try:
+            # Get status code
             status_desc = self.map_status_code()
 
+            # Set status line
             status_line = "HTTP/1.1 %d %s" % (self.status_code, status_desc)
 
+            # Set content disposition if file name exists or if content type is set
             if self.file_name or self.content_type:
                 content_disposition = self.determine_disposition()
             else:
                 content_disposition = ""
 
+            # Generate headers
             headers = OrderedDict(
                 [("Date", datetime.now().strftime("%a, %d %b %Y %H:%M:%S %Z")),
                  ("Server", "localhost"),
